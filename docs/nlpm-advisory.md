@@ -44,3 +44,5 @@ A repo with `.agents/vocabulary.yaml` blocks local commits that add deprecated t
 | --- | --- | --- |
 | `tools-ref` | `main` | Ref of this repo to load scripts from |
 | `nlpm-ref` | pinned `xiaolai/nlpm` commit | Rubric version; bump deliberately |
+| `score-model` | `sonnet` | Model that scores changed artifacts; rubric judgment needs a stronger model |
+| `drift-model` | `haiku` | Model that scans vocabulary drift; term clustering is cheap work |

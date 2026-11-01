@@ -147,8 +147,10 @@ def render(args: argparse.Namespace) -> int:
     out.append("")
 
     out.append("### Vocabulary drift candidates")
-    if not artifacts or args.score_outcome == "no-token":
+    if not artifacts or args.drift_outcome in ("no-token", "skipped"):
         out.append("Not run.")
+    elif not drift and args.drift_outcome != "success":
+        out.append(f"Drift scan produced no results (step outcome: {args.drift_outcome}).")
     elif not drift:
         out.append("None beyond the terms already in `.agents/vocabulary.yaml`.")
     else:
@@ -185,6 +187,7 @@ def main() -> int:
     r.add_argument("--vocab", required=True)
     r.add_argument("--vocab-rc", default="0")
     r.add_argument("--score-outcome", default="skipped")
+    r.add_argument("--drift-outcome", default="skipped")
     r.add_argument("--run-url", default="")
     r.set_defaults(func=render)
 
