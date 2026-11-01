@@ -6,9 +6,9 @@
 | --- | --- | --- | --- |
 | Vocabulary check | `scripts/vocab_check.py` (deterministic, no LLM) | All tracked `.md`, `.html`, `.htm`, `.txt` | Deprecated terms with `file:line` and the canonical term |
 | Artifact scores | `claude-code-action` with the subscription token and the pinned NLPM rubric | Agent artifacts changed in the PR (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `SKILL.md`, `rules/`, `agents/`, `commands/`, plugin manifests, `hooks.json`), minus `discovery.exclude` in `.claude/nlpm.local.md` | Score, top findings, and a verbatim quote per file |
-| Drift candidates | Same Claude step, NLPM `vocab-drift-scanner` | Repo Markdown | New term clusters not already in `.agents/vocabulary.yaml` |
+| Drift candidates | Separate Claude step, NLPM `vocab-drift-scanner` | Prose (`.md`/`.html`/`.htm`/`.txt`) changed in the PR, minus `discovery.exclude`; the rest of the repo only as evidence | New medium/high-confidence term clusters not already in `.agents/vocabulary.yaml`; low-confidence ones are counted and kept in the `nlpm-advisory` run artifact |
 
-The comment is updated in place on every push. The job uses Claude only when agent artifacts changed and the repo has a `CLAUDE_CODE_OAUTH_TOKEN` secret.
+The comment is updated in place on every push. Each Claude step runs only when its inputs changed (agent artifacts for scoring, prose for drift) and the repo has a `CLAUDE_CODE_OAUTH_TOKEN` secret.
 
 Each score row cites a quote; the render step checks the quote exists in the file and marks the row unverified when it does not.
 
