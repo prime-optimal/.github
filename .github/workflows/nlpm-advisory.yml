@@ -155,9 +155,14 @@ jobs:
             Do not modify any repository file. .nlpm-out/drift.jsonl is the only
             file you may write.
 
+      - name: Count actionable drift
+        id: actionable
+        if: steps.drift.outcome == 'success'
+        run: echo "count=$(jq -s '[.[] | select(.confidence != "low")] | length' .nlpm-out/drift.jsonl 2>/dev/null || echo 0)" >> "$GITHUB_OUTPUT"
+
       - name: Recommend vocabulary fixes
         id: recommend
-        if: steps.drift.outcome == 'success' && inputs.apply-drift && hashFiles('.nlpm-out/drift.jsonl') != ''
+        if: inputs.apply-drift && steps.actionable.outputs.count > 0
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
         with:
