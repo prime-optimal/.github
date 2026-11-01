@@ -175,6 +175,7 @@ jobs:
           name: nlpm-advisory
           path: .nlpm-out/
           if-no-files-found: ignore
+          include-hidden-files: true
 
       - name: Post sticky comment
         if: always()
