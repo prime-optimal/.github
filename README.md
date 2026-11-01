@@ -17,7 +17,7 @@ name: nlpm
 on:
   pull_request:
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 jobs:
   nlpm:

@@ -163,14 +163,17 @@ def render(args: argparse.Namespace) -> int:
     elif not drift:
         out.append("None beyond the terms already in `.agents/vocabulary.yaml`.")
     else:
-        out += ["| Terms | Suggested | Kind | Confidence | Evidence |", "| --- | --- | --- | --- | --- |"]
-        for d in drift[:20]:
-            terms = ", ".join(f"`{t}`" for t in d.get("terms", []))
-            out.append(
-                f"| {terms} | `{cell(str(d.get('suggested_canonical', '')))}` | {d.get('disposition', '')} "
-                f"| {d.get('confidence', '')} | {cell(str(d.get('evidence', '')))} |"
-            )
-        out += ["", "Curate real drift into `.agents/vocabulary.yaml` (`deprecated`) or `rejected`."]
+        applied = read_applied(Path(args.applied)) if args.applied else []
+        if applied:
+            out += applied_table(applied, args)
+        else:
+            out += ["| Terms | Suggested | Confidence |", "| --- | --- | --- |"]
+            for d in drift[:20]:
+                out.append(f"| {terms_cell(d)} | `{cell(str(d.get('suggested_canonical', '')))}` | {d.get('confidence', '')} |")
+            out += ["", "Curate real drift into `.agents/vocabulary.yaml` (`deprecated`) or `rejected`."]
+        out += ["", "<details><summary>Evidence</summary>", ""]
+        out += [f"- {terms_cell(d)}: {cell(str(d.get('evidence', '')))}" for d in drift[:20]]
+        out += ["", "</details>"]
     if prose and hidden:
         out += ["", f"_{hidden} low-confidence candidate(s) hidden; see `drift.jsonl` in the workflow run artifacts._"]
 
@@ -178,6 +181,35 @@ def render(args: argparse.Namespace) -> int:
         out += ["", f"[Workflow run]({args.run_url})"]
     sys.stdout.write("\n".join(out) + "\n")
     return 0
+
+
+def terms_cell(record: dict) -> str:
+    return ", ".join(f"`{t}`" for t in record.get("terms", []))
+
+
+def read_applied(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("applied") or []
+    except (json.JSONDecodeError, AttributeError):
+        return []
+
+
+def applied_table(applied: list[dict], args: argparse.Namespace) -> list[str]:
+    sha = args.commit[:7] if args.commit else ""
+    where = f"[{sha}]({args.commit_url})" if sha and args.commit_url else (f"`{sha}`" if sha else "not pushed")
+    rows = ["| Terms | Use | Why | Applied |", "| --- | --- | --- | --- |"]
+    for rec in applied:
+        why = cell(str(rec.get("reason", "")))
+        if rec.get("decision") == "reject":
+            rows.append(f"| {terms_cell(rec)} | keep both; `{cell(rec['term'])}` rejected | {why} | registry, {where} |")
+            continue
+        use = "; ".join(f"`{m['to']}` for `{m['from']}`" for m in rec.get("mappings", []))
+        fixes = sum(int(m.get("count", 0)) for m in rec.get("mappings", []))
+        rows.append(f"| {terms_cell(rec)} | {use} | {why} | {fixes} fix(es), {where} |")
+    rows += ["", "Revert the commit to undo; move a term to `rejected` in `.agents/vocabulary.yaml` to stop it coming back."]
+    return rows
 
 
 def main() -> int:
@@ -196,6 +228,9 @@ def main() -> int:
     r.add_argument("--artifacts", required=True)
     r.add_argument("--scores", required=True)
     r.add_argument("--prose", default="")
+    r.add_argument("--applied", default="")
+    r.add_argument("--commit", default="")
+    r.add_argument("--commit-url", default="")
     r.add_argument("--drift", required=True)
     r.add_argument("--vocab", required=True)
     r.add_argument("--vocab-rc", default="0")
