@@ -29,6 +29,7 @@ ARTIFACT_GLOBS = (
     "**/.codex-plugin/plugin.json",
     "**/hooks/hooks.json",
 )
+PROSE_SUFFIXES = {".md", ".html", ".htm", ".txt"}
 CONFIG = ".claude/nlpm.local.md"
 
 
@@ -43,15 +44,18 @@ def select(args: argparse.Namespace) -> int:
     root = Path(args.root)
     config = frontmatter(root / CONFIG)
     exclude = (config.get("discovery") or {}).get("exclude") or []
-    chosen = []
+    chosen, prose = [], []
     for name in Path(args.changed).read_text(encoding="utf-8").split():
         p = PurePosixPath(name)
-        if not (root / name).is_file():
+        if not (root / name).is_file() or any(p.full_match(g) for g in exclude):
             continue
-        if any(p.full_match(g) for g in ARTIFACT_GLOBS) and not any(p.full_match(g) for g in exclude):
+        if any(p.full_match(g) for g in ARTIFACT_GLOBS):
             chosen.append(name)
+        if p.suffix.lower() in PROSE_SUFFIXES:
+            prose.append(name)
     Path(args.out).write_text("".join(f"{n}\n" for n in chosen), encoding="utf-8")
-    print(len(chosen))
+    Path(args.prose_out).write_text("".join(f"{n}\n" for n in prose), encoding="utf-8")
+    print(f"count={len(chosen)}\nprose={len(prose)}")
     return 0
 
 
@@ -103,9 +107,12 @@ def cell(text: str) -> str:
 def render(args: argparse.Namespace) -> int:
     root = Path(args.root)
     artifacts = [n for n in Path(args.artifacts).read_text(encoding="utf-8").split() if n]
+    prose = [n for n in Path(args.prose).read_text(encoding="utf-8").split() if n] if Path(args.prose).is_file() else []
     vocab = Path(args.vocab).read_text(encoding="utf-8").strip() if Path(args.vocab).is_file() else ""
     rows, problems = read_scores(Path(args.scores), root)
     drift = read_drift(Path(args.drift))
+    hidden = sum(1 for d in drift if str(d.get("confidence", "")).lower() == "low")
+    drift = [d for d in drift if str(d.get("confidence", "")).lower() != "low"]
     has_registry = (root / ".agents/vocabulary.yaml").is_file()
 
     out = [MARKER, "## NLPM advisory", "", "_Advisory only; nothing here blocks the PR._", ""]
@@ -147,8 +154,12 @@ def render(args: argparse.Namespace) -> int:
     out.append("")
 
     out.append("### Vocabulary drift candidates")
-    if not artifacts or args.score_outcome == "no-token":
+    if not prose:
+        out.append("No prose changed in this PR; drift scan skipped.")
+    elif args.drift_outcome in ("no-token", "skipped"):
         out.append("Not run.")
+    elif not drift and args.drift_outcome != "success":
+        out.append(f"Drift scan produced no results (step outcome: {args.drift_outcome}).")
     elif not drift:
         out.append("None beyond the terms already in `.agents/vocabulary.yaml`.")
     else:
@@ -160,6 +171,8 @@ def render(args: argparse.Namespace) -> int:
                 f"| {d.get('confidence', '')} | {cell(str(d.get('evidence', '')))} |"
             )
         out += ["", "Curate real drift into `.agents/vocabulary.yaml` (`deprecated`) or `rejected`."]
+    if prose and hidden:
+        out += ["", f"_{hidden} low-confidence candidate(s) hidden; see `drift.jsonl` in the workflow run artifacts._"]
 
     if args.run_url:
         out += ["", f"[Workflow run]({args.run_url})"]
@@ -175,16 +188,19 @@ def main() -> int:
     s.add_argument("--root", default=".")
     s.add_argument("--changed", required=True)
     s.add_argument("--out", required=True)
+    s.add_argument("--prose-out", required=True)
     s.set_defaults(func=select)
 
     r = sub.add_parser("render", help="render the advisory PR comment")
     r.add_argument("--root", default=".")
     r.add_argument("--artifacts", required=True)
     r.add_argument("--scores", required=True)
+    r.add_argument("--prose", default="")
     r.add_argument("--drift", required=True)
     r.add_argument("--vocab", required=True)
     r.add_argument("--vocab-rc", default="0")
     r.add_argument("--score-outcome", default="skipped")
+    r.add_argument("--drift-outcome", default="skipped")
     r.add_argument("--run-url", default="")
     r.set_defaults(func=render)
 
