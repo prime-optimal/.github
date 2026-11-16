@@ -41,6 +41,8 @@ exclude:
 
 A repo with `.agents/vocabulary.yaml` blocks local commits that add deprecated terms (`VOCAB=0 git commit` bypasses once). The optional global registry at `~/.agents/skills/.vocabulary/registry.yaml` adds terms everywhere as warnings.
 
+A repo that enables R51 in `.claude/nlpm.local.md` (`rule_overrides.R51.vocabulary_skill`) is checked against the NLPM registry at `<vocabulary_skill>/registry.yaml`. Terms use `canonical:` and `deprecated:`; only files under `scopes[].paths` are checked, never all Markdown. A missing, unparseable, or termless registry (for example one written with `name:`) exits 2 with a message instead of passing silently.
+
 ## Inputs
 
 | Input | Default | Purpose |

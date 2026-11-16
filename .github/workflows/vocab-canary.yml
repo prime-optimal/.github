@@ -1,0 +1,24 @@
+name: vocab-canary
+
+on:
+  pull_request:
+    paths:
+      - scripts/vocab_check.py
+      - scripts/vocab_canary.py
+      - .github/workflows/vocab-canary.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/vocab_check.py
+      - scripts/vocab_canary.py
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: scripts/vocab_canary.py
